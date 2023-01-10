@@ -1,8 +1,8 @@
 # Forensic Triage Splunk App
 
 Collection of dashboards used to triage host based artifacts.
-* Timeline: Build with MFTECmd
-* SuperTimeline: Build with CDQR
+* Timeline: Built with MFTECmd dataset
+* SuperTimeline: Built with CDQR dataset
 
 ## MFT Triage Dashboard
 ![image](https://user-images.githubusercontent.com/19607232/211465049-77c53c36-39c4-437d-b2f8-092c61d914dc.png)
