@@ -14,3 +14,6 @@ Collection of dashboards used to triage host based artifacts.
 ![image](https://user-images.githubusercontent.com/19607232/211465785-f7e00049-43b3-47fa-8727-b48b59218e53.png)
 ![image](https://user-images.githubusercontent.com/19607232/211465841-041add6a-33f6-48b1-96f2-72ffc6c46b68.png)
 ![image](https://user-images.githubusercontent.com/19607232/211465889-b37653e9-6164-41b9-a914-604268411f6c.png)
+## Resources
+* Surveyor https://github.com/redcanaryco/surveyor
+* Splunk https://www.splunk.com/en_us/download/splunk-enterprise.html
