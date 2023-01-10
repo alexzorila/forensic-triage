@@ -1,0 +1,548 @@
+<form version="1.1">
+  <label>MFT Triage</label>
+  <description>Summary of common file locations and techniques that may be abused by threat actors.</description>
+  <init>
+    <set token="show_banner">true</set>
+  </init>
+  <fieldset submitButton="true" autoRun="false">
+    <input type="dropdown" token="datasource" searchWhenChanged="true">
+      <label>Data Source</label>
+      <fieldForLabel>source</fieldForLabel>
+      <fieldForValue>source</fieldForValue>
+      <search>
+        <query>| tstats count WHERE source=*mft* by source
+| fields source
+| sort - source</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+    </input>
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time</label>
+      <default>
+        <earliest>0</earliest>
+        <latest></latest>
+      </default>
+    </input>
+    <input id="search1" type="text" token="include" searchWhenChanged="true">
+      <label>Global Include (eg: pdf AND downloads)</label>
+      <default>*</default>
+    </input>
+    <input id="search2" type="text" token="exclude" searchWhenChanged="true">
+      <label>Global Exclude (eg: windows OR "program files")</label>
+      <default>''</default>
+    </input>
+  </fieldset>
+  <row depends="$show_banner$">
+    <panel>
+      <title>Please select a Data Source to continue.</title>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>User Accounts</title>
+      <table>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+C:/Users ntuser.dat
+| search Size &gt; 0 AND "File Name"=*ntuser.dat
+| rex field="File Name" "/Users/(?&lt;User&gt;.*?)/" 
+| fillnull value="Failed to extract"
+| stats values("File Name") as Reference earliest(_time) as "First Activity" latest(_time) as "Last Activity" count by User
+| convert ctime(*Activity*) 
+| sort 0 "First Activity"</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <progress>
+            <unset token="show_banner"></unset>
+          </progress>
+        </search>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.include=$click.value$&amp;form.datasource=$datasource$&amp;form.time.earliest=$time.earliest$&amp;form.time.latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Process Execution by Category</title>
+      <input type="text" token="filter_process" searchWhenChanged="true">
+        <label>Filter</label>
+        <default>*</default>
+      </input>
+      <input type="dropdown" token="show_unknown" searchWhenChanged="true">
+        <label>Show Unknown Category</label>
+        <choice value="eval process_category = coalesce(process_category, &quot;Unknown&quot;)">Yes</choice>
+        <choice value="where 1=1">No</choice>
+        <default>where 1=1</default>
+      </input>
+      <table>
+        <title>Classified by Category</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_process$)
+NOT "($FILE_NAME)"
+":/Windows/Prefetch/" .pf
+| rex field="File Name" ":/Windows/Prefetch/(?&lt;process&gt;.*?).pf" 
+| eval process = lower(substr(process,0,len(process)-9))
+| eval process_category = case(
+process IN ("csvde.exe", "dsadd.exe", "dsget.exe", "dsmod.exe", "dsquery.exe", "ldifde.exe", "ntdsutil.exe", "dcdiag.exe", "klist.exe", "dcpromo.exe", "adprep.exe", "dsacl.exe", "ntdsutil.exe", "dsmove.exe", "ldp.exe", "netdom.exe", "dsrm.exe", "adinfo.exe"), "active-directory",
+process IN ("at.exe", "schtasks.exe", "net.exe", "utilman.exe", "mshta.exe", "vssadmin.exe", "wmic.exe"), "admin-utils",
+process IN ("tor.exe", "Tor Browser", "i2p.exe", "tbear.exe", "tbear.maintenance.exe"), "anonymizer",
+process IN ("bds-vision.exe", "cb.exe", "CSFalcon.exe", "dgagent.exe", "fcags.exe", "fcagswd.exe", "firesvc.exe", "HipMgmt.exe", "kvoop.exe", "masvc.exe", "mbae.exe", "mcshield.exe", "mfeann.exe", "mfemactl.exe", "MSASCui.exe", "MSAScuiL.exe", "msmpeng.exe", "msmpsvc.exe", "ossec.exe", "parity.exe", "svservice.exe", "shstat.exe", "splunk-admon.exe", "splunkd.exe", "splunk.exe", "splunk-powershell.exe", "splunk-winevtlog.exe", "symantec.exe", "sysmon.exe", "TaniumClient.exe", "TMCCSF.exe", "Triumfant.exe", "vstskmgr.exe", "windefend.exe", "WRSA.exe", "PanGPA.exe", "CylanceSvc.exe", "CylanceUI.exe", "CyOptics.exe", "SentinelServiceHost.exe", "SentinelStaticEngine.exe", "SentinelStaticEngineScanner.exe", "bdagent.exe", "kl_platf.exe", "PccNtMon.exe", "TmCCSF.exe", "TmListen.exe", "Ntrtscan.exe"), "av",
+process IN ("utorrent.exe", "torrent*.exe", "ShenZhen Thunder Networking Technologies Ltd.", "BitTorrent Inc", "Digital Ignition LLC", "Azureus Software, Inc."), "bittorrent",
+process IN ("keygen.exe", "autokms.exe", "Pstpassword1.exe", "john.exe", "lc.exe", "premium crack.exe", "Xf-mccs6.exe"), "cracks-keygens",
+process IN ("bztransmit.exe", "boxsync.exe", "boxsyncmonitor.exe", "syncupdaterservice.exe", "CarboniteService.exe", "carbonitepreinstaller.exe", "CrashPlanService.exe", "CrashPlanDesktop.exe", "CrashPlanTray.exe", "client.dropbox.com", "dropbox.exe", "Dropbox", "foxitcloud.com", "foxit_cloudreading.exe", "googledrivesync.exe", "hightail.com", "shareit.exe", "icloudservices.exe", "cloudd", "junglediskmonitor.exe", "viivo.exe", "onedrive.exe", "megasync.exe"), "file-sharing-and-backup",
+process IN ("cyberduck", "fzsftp.exe", "filezilla.exe", "fzputtygen.exe", "filezilla", "ftp*.exe", "ftp", "pushd.exe", "robocopy.exe", "pscp.exe", "scp.exe", "winscp.exe", "sftp*.exe", "sftp", "xcopy.exe"), "file-transfer",
+process IN ("kill*", "pkill", "pskill.exe", "tskill.exe", "stop-process", "terminate", "net stop"), "killers",
+process IN ("bfgminer.exe", "minerd.exe", "cgminer.exe", "rpcminer-cpu.exe", "bitcoin-miner.exe", "btc.exe", "m6.exe", "Auroracoin-qt-2016.04.1.0.exe", "miner.py", "Win64mrocli3.exe", "easyminer.exe", "50miner.exe", "cudaminer.exe", "coin-miner.exe", "bitmoose-gui.exe", "xmrig", "xmrig-amd", "xmrig-nvidia", "xmr-stak", "xmr-stak-amd", "xmr-stak-nvidia", "xmr-stak-cpu", "NsCpuCNMiner64", "NsGpuCNMiner", "cpuminer", "yam"), "miners",
+process IN ("fiddler.exe", "privoxy.exe"), "proxies-intercepts",
+process IN ("aa_v*.exe", "ammyy.com", "g2comm.exe", "g2fileh.exe", "g2host.exe", "g2mainh.exe", "g2printh.exe", "g2svc.exe", "g2tray.exe", "gopcsrv.exe", "lmiignition.exe", "lmiguardiansvc.exe", "logmein*.exe", "termsrv.exe", "Microsoft Remote Desktop", "mstsc.exe", "client32.exe", "client32", "radmin3.exe", "famitrfc.exe", "awrem32.exe", "awhost32.exe", "smpcsetup.exe", "showmypc*.exe", "teamviewer_desktop.exe", "teamviewer", "teamviewer.exe", "teamviewer_service.exe", "teamviewerhost", "dwrcs.exe", "DWRCST", "winvnc.exe", "vncviewer.exe", "winvncsc.exe"), "remote-admin",
+process IN ("nmap", "zenmap.exe", "advanced_ip_scanner.exe", "ipscan24.exe", "ipscan.exe", "scanner.exe", "netscan.exe", "superscan4.exe", "superscan4.1.exe"), "scanners",
+process IN ("caffeine.exe", "mousejiggle.exe", "move mouse.exe"), "screensaverbypass",
+process IN ("autoit.exe", "powershell.exe", "psexec*.exe", "psexesvc.exe", "cmd.exe", "wscript.exe", "cscript.exe", "python*.exe", "python*", "perl*.exe", "perl*", "sh.exe", "bash.exe", "zsh.exe", "sh", "bash", "zsh"), "scripting",
+process IN ("outliercollectorservice.exe", "wagsrvc.exe", "ecatservice.exe", "notificationmanager.exe", "insyncagent.exe", "beyondtrust.sessionmonitoring.service.exe", "cylancesvc.exe", "cyupdate.exe", "fortiscand.exe", "fcwscd7.exe", "ctfprocacv.exe", "cksetup32.exe", "sacmonitor.exe", "xwforensics64.exe", "SophosWebIntelligence", "savprogress.exe", "savmain.exe", "wscclient.exe", "Sophos Limited", "anysign4pc.exe", "nos_setup_woori.exe", "avguard.exe", "avastsvc.exe", "SpectorSoft", "ntrtscan.exe", "dphostw.exe", "start.qz_", "qualysagent.exe", "scan64.exe", "mfeservicemgr.exe", "entvutil.exe", "SMC.exe", "nis.exe", "SMCgui.exe", "idfendpoint.exe", "avp.exe", "wrsa.exe", "MsMpEngine.exe", "cmdagent.exe", "avgui.exe", "egui.exe", "mbamservice.exe", "parity.exe", "avecto", "privilegeguardservice.exe", "defendpointservice.exe", "FSSM32.exe", "fspex.exe"), "security",
+process IN ("wireshark.exe", "winpcap.exe", "tcpdump", "windump.exe", "tshark", "netmon.exe", "netcap.exe", "dumpcap.exe"), "sniffers",
+process IN ("pipelist.exe", "psexec.exe", "PsExec", "AccessEnum.exe", "AdExplorer.exe", "AdInsight.exe", "AdRestore.exe", "Autologon.exe", "Autoruns.exe", "BgInfo.exe", "CacheSet.exe", "ClockRes.exe", "Contig.exe", "Coreinfo.exe", "Ctrl2Cap.exe", "DebugView.exe", "Disk2vhd.exe", "DiskExt.exe", "DiskMon.exe", "DiskView.exe", "EFSDump.exe", "FindLinks.exe", "Handle.exe", "Hex2dec.exe", "Junction.exe", "LDMDump.exe", "ListDLLs.exe", "LiveKd.exe", "LoadOrder.exe", "LogonSessions.exe", "PortMon.exe", "PortMon", "ProcDump.exe", "ProcDump", "procexp.exe", "procexp", "PipeList.exe", "ProcMon.exe", "PsFile.exe", "PsGetSid.exe", "PsInfo.exe", "PsPing.exe", "PsKill.exe", "PsList.exe", "PsLoggedOn.exe", "PsLoggedOn", "PsLogList.exe", "PsPasswd.exe", "PsPasswd", "PsService.exe", "PsShutdown.exe", "PsShutdown", "RAMMap.exe", "RAMMap", "PsSuspend.exe", "RegDelNull.exe", "RegDelNull", "RegJump.exe", "SDelete.exe", "SDelete", "ShareEnum.exe", "ShareEnum", "ShellRunas.exe", "ShellRunas", "Sigcheck.exe", "Streams.exe", "Streams", "Strings.exe", "Sysmon.exe", "TCPView.exe", "TCPView", "WhoIs.exe", "WinObj.exe", "ZoomIt.exe", "ru.exe", "Desktops.exe"), "sysinternals",
+process IN ("at.exe", "schtasks.exe", "net.exe", "utilman.exe", "mshta.exe", "vssadmin.exe", "wmic.exe", "whoami.exe", "mmc.exe", "systeminfo.exe", "installutil.exe", "rundll32.exe", "regsvcs.exe"), "system-utils")
+| $show_unknown$
+| stats values("File Name") earliest(_time) latest(_time) count by process_category process
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>File Paths abused by Malware</title>
+      <input type="text" token="filter_path" searchWhenChanged="true">
+        <label>Filter</label>
+        <default>*</default>
+      </input>
+      <table>
+        <title>Users/Public</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_path$)
+NOT "($FILE_NAME)"
+"users/public" 
+| table _time Meta Type Size "File Name"
+| where Size &gt; 0
+| stats earliest(_time) latest(_time) count by "File Name"
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>$Recycle.Bin</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_path$)
+"Recycle.Bin" 
+NOT "($FILE_NAME)"
+| where Size &gt; 0
+| stats earliest(_time) latest(_time) count by "File Name"
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Users/*/Downloads</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_path$)
+NOT "($FILE_NAME)"
+"/users/*/downloads/" 
+| table _time Meta Type Size "File Name"
+| where Size &gt; 0
+| stats earliest(_time) latest(_time) count by "File Name"
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Windows/Temp</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_path$)
+NOT "($FILE_NAME)"
+Windows/Temp
+| where Size &gt; 0
+| stats earliest(_time) latest(_time) count by "File Name"
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Users/*/Appdata/Local/Temp</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_path$)
+NOT "($FILE_NAME)"
+Users Appdata/Local/Temp
+| where Size &gt; 0
+| rex field="File Name" "/Users/(?&lt;User&gt;.*?)/" 
+| fillnull value="Failed to extract"
+| stats earliest(_time) latest(_time) count by User "File Name"
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Persistence</title>
+      <table>
+        <title>Scheduled Tasks</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)" NOT ":/Windows/System32/Tasks/Microsoft/"
+(":/windows/tasks" OR :/windows/system32/tasks OR (:/Windows/Prefetch (at.exe OR schtasks.exe)))
+Size &gt; 0
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$&amp;clicked=$row.path$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Startup Folder</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+Size &gt; 0
+"Start Menu/Programs/StartUp"
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>WMI Event / .MOF</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+Size &gt; 0
+(
+(":/Windows/Prefetch/" AND ("wmic.exe" OR scrcons.exe OR mofcomp.exe OR wmiprvse.exe)) OR
+(:/windows/system32/wbem/repository/ .mof)
+)
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Scripting Activity</title>
+      <input type="text" token="filter_script" searchWhenChanged="true">
+        <label>Filter</label>
+        <default>*</default>
+      </input>
+      <table>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$) ($filter_script$)
+(.ps1 OR .cmd OR .bat OR .vbs OR .vba OR .hta) 
+NOT ($FILE_NAME)
+NOT [| inputlookup global_allowlist.csv | rename file as query | format]
+NOT ("/Windows/servicing/LCU/" OR "/Program Files/SplunkUniversalForwarder/" OR "/Windows/WinSxS/" OR "/Windows/diagnostics/system/" OR "/Windows/diagnostics/" OR "/Program Files (x86)/WindowsPowerShell/" OR "/Program Files/WindowsPowerShell/" OR "/Windows/SysWOW64/WindowsPowerShell/v1.0/Modules/" OR "/Windows/SysWOW64/Printing_Admin_Scripts/" OR "/Windows/System32/WindowsPowerShell/v1.0/Modules/" OR "/Windows/System32/Printing_Admin_Scripts/" OR *.lnk)
+| table _time Meta Type Size "File Name" 
+| stats earliest(_time) latest(_time) count by "File Name" Size 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Collection</title>
+      <table>
+        <title>File Archives</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+(.zip OR .rar OR .7z OR .tar OR compress OR diantz) NOT ($FILE_NAME)
+NOT [| inputlookup global_allowlist.csv | rename file as query | format]
+| table _time Meta Type Size "File Name" 
+| stats earliest(_time) latest(_time) count by "File Name" Size 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*) 
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Bulk file copy utilities</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)" NOT "/MicrosoftEdgeBackups/backups/MicrosoftEdgeBackup*/"
+Size &gt; 0
+(":/Windows/Prefetch/" AND (xcopy.exe OR robocopy.exe))
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Remote Access</title>
+      <table>
+        <title>RDP</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+Size &gt; 0
+(":/Windows/Prefetch/" AND (mstsc.exe OR rdpclip.exe OR tstheme.exe ))
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Remote Support Tools</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+Size &gt; 0
+(":/Windows/Prefetch/" AND (teamviewer OR anydesk OR *vnc*))
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row depends="$datasource$">
+    <panel>
+      <title>Miscelanious</title>
+      <table>
+        <title>Files originating from the Web</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)" NOT "/MicrosoftEdgeBackups/backups/MicrosoftEdgeBackup*/"
+Size &gt; 0
+":Zone.Identifier"
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>LOLBINs in unusual path</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)" NOT .pf
+Size &gt; 0
+(
+NOT (:/windows/system32/ OR :/Windows/SysWOW64/ OR :/Windows/WinSxS/ OR :/Windows/servicing/ OR :/Windows/SystemResources/*.mun OR *.log)
+(Advpack.dll OR At.exe OR Atbroker.exe OR Bash.exe OR Bitsadmin.exe OR CertOC.exe OR CertReq.exe OR Certutil.exe OR Cmd.exe OR Cmdkey.exe OR cmdl32.exe OR Cmstp.exe OR Comsvcs.dll OR Conhost.exe OR Control.exe OR Cscript.exe OR CustomShellHost.exe OR Desk.cpl OR Desktopimgdownldr.exe OR DeviceCredentialDeployment.exe OR Devtoolslauncher.exe OR Diantz.exe OR Diskshadow.exe OR Dnscmd.exe OR Dxcap.exe OR Esentutl.exe OR Eventvwr.exe OR Expand.exe OR Extrac32.exe OR Findstr.exe OR Finger.exe OR fltMC.exe OR Forfiles.exe OR fsutil.exe OR Ftp.exe OR GfxDownloadWrapper.exe OR Gpscript.exe OR Ie4uinit.exe OR Ieadvpack.dll OR Ieframe.dll OR IMEWDBLD.exe OR Infdefaultinstall.exe OR Ldifde.exe OR Makecab.exe OR Manage-bde.wsf OR Mavinject.exe OR Mmc.exe OR Msconfig.exe OR Msdt.exe OR Mshta.exe OR Mshtml.dll OR Msiexec.exe OR Netsh.exe OR ntdsutil.exe OR Odbcconf.exe OR Pcalua.exe OR Pcwrun.exe OR Pcwutl.dll OR Pktmon.exe OR Pnputil.exe OR Presentationhost.exe OR Print.exe OR PrintBrm.exe OR Psr.exe OR Pubprn.vbs OR Rasautou.exe OR rdrleakdiag.exe OR Reg.exe OR Regini.exe OR Register-cimprovider.exe OR Regsvr32.exe OR Replace.exe OR Rpcping.exe OR Rundll32.exe OR Runexehelper.exe OR Runonce.exe OR Sc.exe OR Schtasks.exe OR Scriptrunner.exe OR Setres.exe OR SettingSyncHost.exe OR Setupapi.dll OR Shdocvw.dll OR Shell32.dll OR Stordiag.exe OR SyncAppvPublishingServer.exe OR Syncappvpublishingserver.vbs OR Syssetup.dll OR Ttdinject.exe OR Tttracer.exe OR Unregmp2.exe OR Url.dll OR Verclsid.exe OR vsjitdebugger.exe OR winrm.vbs OR Wlrmdr.exe OR Wmic.exe OR WorkFolders.exe OR Wscript.exe OR Wsl.exe OR Wsreset.exe OR wuauclt.exe OR Xwizard.exe OR Zipfldr.dll)
+)
+| stats earliest(_time) latest(_time) count by "File Name" 
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| convert ctime(*_time*)
+| sort 0 earliest(_time)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Multiple discovery commands executed in a short time</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+.pf ("whoami" OR "wmic" OR "systeminfo" OR "net" OR "ping" OR "nltest" OR "nslookup" OR "quser" OR "adfind" OR "advanced_ip_scanner")
+| bin span=15m _time
+| table _time Meta Type Size "File Name"
+| stats values("File Name") count by _time Type
+| eval _et = 'earliest(_time)'-2, _lt = 'earliest(_time)'+2
+| where count &gt; 3
+| sort 0 _time</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/forensic_triage/mft_timeline?form.datasource=$datasource$&amp;form.time.earliest=$row._et$&amp;form.time.latest=$row._lt$</link>
+        </drilldown>
+      </table>
+      <table>
+        <title>Filename with double extension and multiple spaces</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+NOT "($FILE_NAME)"
+users
+| table _time Meta Type Size "File Name"
+| regex "File Name"="\w+\.\w+(\s+){4,}\.\w"
+| sort 0 _time</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$alwaysHideCSSStyle$">
+      <html>
+        <style>
+          #search1{
+            width: 30% !important;
+          }
+          #search2{
+            width: 30% !important;
+          }
+          .dashboard-row .dashboard-panel h2.panel-title {
+          font-size: 20px !important;
+          font-weight: bold;
+          //text-align: center !important;
+          //background-color:#333333 !important;
+          //color:#ffffff !important;
+          }
+          .msg {
+              height:40px !important;
+          }
+          .splunk-viz-msg {
+              height:40px !important;
+              
+          }
+          .splunk-message-container {
+              justify-content: left;
+          }
+      </style>
+    </html>
+    </panel>
+  </row>
+</form>

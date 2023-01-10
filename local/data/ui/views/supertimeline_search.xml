@@ -1,0 +1,81 @@
+<form version="1.1">
+  <label>Supertimeline Search</label>
+  <fieldset submitButton="true">
+    <input type="dropdown" token="datasource" searchWhenChanged="true">
+      <label>Data Source</label>
+      <fieldForLabel>source</fieldForLabel>
+      <fieldForValue>source</fieldForValue>
+      <search>
+        <query>| tstats count WHERE source=*supertimeline* by source
+| fields source
+| sort - source</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+    </input>
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time</label>
+      <default>
+        <earliest>0</earliest>
+        <latest></latest>
+      </default>
+    </input>
+    <input type="multiselect" token="extracted_sourcetype" searchWhenChanged="true">
+      <label>Sourcetype</label>
+      <choice value="*">ALL</choice>
+      <fieldForLabel>e_st</fieldForLabel>
+      <fieldForValue>extracted_sourcetype</fieldForValue>
+      <search>
+        <query>source="$datasource$" sourcetype="csv" 
+| stats count by extracted_sourcetype
+| eval e_st = extracted_sourcetype." (".count.")"</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+      <delimiter> , </delimiter>
+      <valuePrefix>"</valuePrefix>
+      <valueSuffix>"</valueSuffix>
+    </input>
+    <input type="text" token="filter" searchWhenChanged="true">
+      <label>Filter Results</label>
+      <default>*</default>
+    </input>
+  </fieldset>
+  <row depends="$extracted_sourcetype$">
+    <panel>
+      <table>
+        <search>
+          <done>
+            <set token="jobSid">$job.sid$</set>
+            <set token="jobCount">$job.eventCount$</set>
+          </done>
+          <query>source="$datasource$" sourcetype="csv" 
+extracted_sourcetype IN ($extracted_sourcetype$)
+$filter$
+| table _time extracted_sourcetype _raw
+| sort 0 _time</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+  <row depends="$noshow$">
+    <panel>
+      <html>
+      <style>
+        .input-text {
+          width: 50% !important;;
+        }
+        .dashboard-panel h3{
+            //text-align: right !important;
+          }
+      </style>
+    </html>
+    </panel>
+  </row>
+</form>

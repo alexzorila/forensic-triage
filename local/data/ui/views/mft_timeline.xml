@@ -1,0 +1,124 @@
+<form version="1.1">
+  <label>MFT Timeline</label>
+  <description>Records of file operations, displayed in chronological order. Filter timeline by including and excluding key words.</description>
+  <fieldset submitButton="true" autoRun="false">
+    <input type="dropdown" token="datasource" searchWhenChanged="true">
+      <label>Data Source</label>
+      <fieldForLabel>source</fieldForLabel>
+      <fieldForValue>source</fieldForValue>
+      <search>
+        <query>| tstats count WHERE source=*mft* by source
+| fields source
+| sort - source</query>
+        <earliest>0</earliest>
+        <latest></latest>
+      </search>
+    </input>
+    <input type="time" token="time" searchWhenChanged="true">
+      <label>Time</label>
+      <default>
+        <earliest>0</earliest>
+        <latest></latest>
+      </default>
+    </input>
+    <input id="search1" type="text" token="include" searchWhenChanged="true">
+      <label>Include (eg: pdf AND downloads)</label>
+      <default>*</default>
+    </input>
+    <input id="search2" type="text" token="exclude" searchWhenChanged="true">
+      <label>Exclude (eg: windows OR "program files")</label>
+      <default>($FILE_NAME)</default>
+    </input>
+  </fieldset>
+  <row>
+    <panel depends="$alwaysHideCSSStyle$">
+      <html>
+        <style>
+          #search1{
+            width: 30% !important;
+          }
+          #search2{
+            width: 30% !important;
+          }
+      </style>
+    </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Event distribution</title>
+        <search>
+          <query>| tstats prestats=true count WHERE source="$datasource$" by _time
+| timechart count</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">log</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="height">160</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <drilldown>
+          <eval token="form.time.earliest">$earliest$</eval>
+          <eval token="form.time.latest">$latest$</eval>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Timeline</title>
+        <search>
+          <query>source="$datasource$" ($include$) NOT ($exclude$)
+| table _time Meta Type Size "File Name"
+| sort 0 _time</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="count">30</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <!--
+        <format type="color">
+          <colorPalette type="expression">if(match(value,$clicked$),"#53A051",null)</colorPalette>
+        </format>
+        -->
+        <drilldown>
+          <link target="_blank">search?q=source%3D%22$datasource$%22%20($include$)%20NOT%20($exclude$)%0A%7C%20table%20_time%20Meta%20Type%20Size%20%22File%20Name%22%0A%7C%20sort%200%20_time&amp;earliest=$time.earliest$&amp;latest=$time.latest$</link>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+</form>

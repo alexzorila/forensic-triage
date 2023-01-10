@@ -1,0 +1,44 @@
+[app/ui]
+version = 9.0.3
+modtime = 1672984659.658344000
+
+[app/launcher]
+version = 9.0.3
+modtime = 1672984659.660281000
+
+[nav/default]
+version = 9.0.3
+modtime = 1673223754.032527000
+
+[lookups/global_allowlist.csv]
+owner = admin
+version = 9.0.3
+modtime = 1672985328.106483000
+
+[views/mft_timeline]
+access = read : [ * ], write : [ admin ]
+export = none
+owner = admin
+version = 9.0.3
+modtime = 1673218958.283599000
+
+[views/mft_triage]
+access = read : [ * ], write : [ admin ]
+export = none
+owner = admin
+version = 9.0.3
+modtime = 1673222484.760847000
+
+[views/datasource_summary]
+access = read : [ * ], write : [ admin ]
+export = none
+owner = admin
+version = 9.0.3
+modtime = 1673203107.757955000
+
+[views/supertimeline_search]
+access = read : [ * ], write : [ admin ]
+export = none
+owner = admin
+version = 9.0.3
+modtime = 1673324167.493605000

@@ -1,0 +1,14 @@
+<nav search_view="search">
+  <view name="search" />
+  <collection label="MFTECmd">
+  	<view name="mft_triage" default='true'/>
+    <view name="mft_timeline" />
+  </collection>
+  <collection label="CDQR / Plaso">
+  	<view name="datasource_summary" />
+    <view name="supertimeline_triage" />
+    <view name="supertimeline_search" />
+    <view name="supertimeline" />
+  </collection>
+  <a href="/app/lookup_editor/lookup_edit?owner=nobody&amp;namespace=forensic_triage&amp;lookup=global_allowlist.csv&amp;type=csv&amp;transform=">Global Allowlist</a>
+</nav>
